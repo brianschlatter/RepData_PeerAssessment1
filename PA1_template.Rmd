@@ -1,20 +1,114 @@
 # Reproducible Research: Peer Assessment 1
 
-
+```{r global_options, echo=FALSE}
+opts_chunk$set(echo=FALSE)
+```
 ## Loading and preprocessing the data
+```{r}
+# Prep download folder
+if (!file.exists("data")) {
+  dir.create("data")
+}
 
+# This was a zip file so let's extract the actual data files from it
+if (!file.exists("./data/activity.csv")) {
+  unzip("activity.zip", overwrite=FALSE, exdir="./data")
+}
 
+raw_data <- read.csv("./data/activity.csv", stringsAsFactors=FALSE, na.strings="NA")
+
+str(raw_data)
+summary(raw_data)
+```
 
 ## What is mean total number of steps taken per day?
+```{r}
+# The following is going to be redundant ways to calcuate the sum of a column grouped by another column
+# but I want to do both ways for posterity sake.
+# (1) Use tapply
+steps_per_day_1 <- tapply(raw_data$steps, raw_data$date, FUN=sum)
+barplot(steps_per_day_1, main="Steps per Day", xlab="Day", ylab="Total Steps")
 
+# (2) Use aggregate
+steps_per_day_2 = aggregate(raw_data$steps, by=list(raw_data$date), FUN=sum)
+names(steps_per_day_2) <- c("date", "total_steps")
 
+mn <- mean(steps_per_day_2$total_steps, na.rm=TRUE)
+md <- median(steps_per_day_2$total_steps, na.rm=TRUE)
+i <- which.max(steps_per_day_2$total_steps)
+message(sprintf("The maximum number of steps, %s, occurred on %s", steps_per_day_2[i, "total_steps"], steps_per_day_2[i, "date"]))
+message(sprintf("Mean: %s\nMedian: %s", round(mn), md))
+# TODO Should I just replace these with a call to "summary". 
+#summary(steps_per_day_2$total_steps)
+  
+```
 
 ## What is the average daily activity pattern?
+```{r}
+avg_steps_per_interval = aggregate(raw_data$steps, by=list(raw_data$interval), FUN=mean, na.rm=TRUE)
+names(avg_steps_per_interval) <- c("interval", "avg_steps")
+plot(avg_steps_per_interval$interval, avg_steps_per_interval$avg_steps, type="l", main="Average Steps per 5-min Interval", xlab="5-m Interval", ylab="Average Steps")
 
+
+i <- which.max(avg_steps_per_interval$avg_steps)
+interval_int <- avg_steps_per_interval[i, "interval"]
+hour <- floor(interval_int / 100)
+min <- interval_int %% 100
+message(sprintf("The maximum average number of steps, %s, occurred on interval %s (i.e. %02d:%02d)", round(avg_steps_per_interval[i, "avg_steps"]), interval_int, hour, min))
+
+```
 
 
 ## Imputing missing values
+### My technique for imputing assumes that the missing value at a given interval will be replaced with the average value at that same interval.
+```{r}
+# Display the number of missing values
+message(sprintf("The steps column has %s entries with missing data (i.e. NA values)", 
+                sum(is.na(raw_data$steps) == TRUE)))
+# Or I could do this with summary(raw_data$steps)[7]
 
 
+# I will assume the person behaves roughly the same each day. This is probably not 
+# the case for weekends and weekdays but my assumption will remain.
+# So whenever I find a missing value, I will impute that value with the average 
+# value at the time from avg steps table.
+head(avg_steps_per_interval)
+imp_data <- raw_data
+# The simplest way to do this is to build up a dataset for the same number of days as the original except everyday has the average 
+# steps per 5-min interval. Then we just replace the NA value in the raw_data with the avg value at the same exact location. 
+# I found it non-trivial to do an inner join with two tables that don't have the same length.
+num_days = length(imp_data$steps) / length(avg_steps_per_interval$avg_steps)
+avg_steps_per_interval <- do.call("rbind", replicate(num_days, avg_steps_per_interval, simplify=FALSE))
+missing <- is.na(imp_data$steps)
+# Only overwrite the NA (i.e. missing) values
+imp_data$steps[missing] <- avg_steps_per_interval$avg_steps[missing] 
+
+# Display the histogram
+imp_steps_per_day <- tapply(imp_data$steps, imp_data$date, FUN=sum)
+barplot(imp_steps_per_day, main="Steps per Day", xlab="Day", ylab="Total Steps")
+
+# Display the mean and median
+mn <- mean(imp_steps_per_day)
+md <- median(imp_steps_per_day)
+message(sprintf("Mean: %s\nMedian: %s", round(mn), round(md)))
+
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+# Create new column representing if the day is a weekday or not.
+# Create and new vector and initialize it to all "weekday"
+workweek <- rep("weekday", length(imp_data$steps))
+# now map the actual dates to days of the week and then determine which of those are Sat or Sun
+days <- weekdays(as.Date(imp_data$date))
+weekends <- days %in% c("Saturday", "Sunday")
+workweek[weekends] <- "weekend"
+# convert it to a factor and add this column to our data frame
+workweek <- as.factor(workweek)
+imp_data$workweek <- workweek
+
+# Let's now make a panel plot
+
+```
+
+
