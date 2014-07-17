@@ -68,7 +68,7 @@
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
-
+![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5.png) 
 
 
 

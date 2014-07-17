@@ -107,7 +107,17 @@ workweek[weekends] <- "weekend"
 workweek <- as.factor(workweek)
 imp_data$workweek <- workweek
 
-# Let's now make a panel plot
+# Calculate the average steps during the workweek and during the weekend. 
+avg_steps_per_interval_weekday = aggregate(imp_data$steps, by=list(imp_data$interval, imp_data$workweek), FUN=mean, na.rm=TRUE)
+names(avg_steps_per_interval_weekday) <- c("interval", "workweek", "avg_steps")
+# Separate out the data just for the workweek and just for the weekend
+workweek_data<-avg_steps_per_interval_weekday[avg_steps_per_interval_weekday$workweek == "weekday",c("interval", "avg_steps")]
+weekend_data<-avg_steps_per_interval_weekday[avg_steps_per_interval_weekday$workweek == "weekend",c("interval", "avg_steps")]
+# Now create the panel plot
+par(mfrow=c(2,1))
+plot(workweek_data$interval, workweek_data$avg_steps, type="l", main="Avg Steps During Workweek", xlab="5-m Interval", ylab="Average Steps")
+plot(weekend_data$interval, weekend_data$avg_steps, type="l", main="Avg Steps During Weekend", xlab="5-m Interval", ylab="Average Steps")
+
 
 ```
 
